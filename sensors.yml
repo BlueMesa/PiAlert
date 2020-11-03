@@ -1,0 +1,17 @@
+Incubators:
+  SFL:
+    - Cell culture:
+      url: https://db.sflab.io/sensors/11.json
+    - Michael's Incubator 1:
+      url: https://db.sflab.io/sensors/14.json
+    - Michael's Incubator 2:
+      url: https://db.sflab.io/sensors/17.json
+    - Michael's Incubator 3:
+      url: https://db.sflab.io/sensors/20.json
+    - Michael's Incubator 4:
+      url: https://db.sflab.io/sensors/23.json
+    - Fly Room:
+      url: https://db.sflab.io/sensors/5.json
+    - Incubator 1:
+      url: https://db.sflab.io/sensors/8.json
+Freezers:
