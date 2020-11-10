@@ -3,6 +3,13 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from http import HTTPStatus
 import json
+import re
+
+from alerts import AlertHandler
+from sensors import SensorReader
+
+sensors = []
+alerts_handler = AlertHandler()
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -18,17 +25,22 @@ class _RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get('content-length'))
         message = json.loads(self.rfile.read(length))
-        print(message)
+        m = re.search(r'^/sensors/([0-9]+)/reading.json$', self.path)
+        sensor_id = int(m.group(1))
+        sensor = sensors[sensor_id]
+        alerts_handler.handle(sensor, message)
         self._set_headers()
         self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
 
 
 def run_server():
-    server_address = ('', 8001)
+    server_address = ('', 8000)
     httpd = HTTPServer(server_address, _RequestHandler)
     print('serving at %s:%d' % server_address)
     httpd.serve_forever()
 
 
 if __name__ == '__main__':
+    sensors = SensorReader.from_yaml('sensors.yml')
+    print(sensors)
     run_server()

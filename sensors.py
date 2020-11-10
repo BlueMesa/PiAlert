@@ -1,5 +1,12 @@
+import logging
+from pathlib import Path
 from typing import Union, Tuple
 from urllib.parse import urlparse
+
+import requests
+import yaml
+
+from alerts import Alert, TemperatureAlert, HumidityAlert
 
 ThresholdValue = Union[float, str, Tuple[float, float], Tuple[str, str]]
 SensorValue = Union['MonitoredValue', float, None]
@@ -25,7 +32,7 @@ class Threshold:
 
     @lower.setter
     def lower(self, value: float):
-        self._upper = value
+        self._lower = value
 
     @property
     def upper(self) -> float:
@@ -46,7 +53,7 @@ class Threshold:
         else:
             raise ValueError
 
-    def violates(self, value: float, setting: float = 0):
+    def violated(self, value: float, setting: float = 0):
         return (value > (setting + self.upper)) or (value < (setting - self.lower))
 
     def __iter__(self):
@@ -78,6 +85,8 @@ class FractionThreshold(Threshold):
 
 
 class MonitoredValue:
+
+    ALERT = Alert
 
     def __init__(self, v_set: float, warn: ThresholdValue = None, alert: ThresholdValue = None):
         self._set = v_set
@@ -112,7 +121,7 @@ class MonitoredValue:
     def triggers(self, value: float):
         for a in self._alerts:
             if a.violated(value, self.value):
-                yield a
+                yield self.ALERT(a, value, self.value)
 
     @staticmethod
     def __threshold_factory(value: ThresholdValue, default: ThresholdValue, level: str):
@@ -136,13 +145,22 @@ class MonitoredValue:
         return str(self._set)
 
 
+class TemperatureValue(MonitoredValue):
+    ALERT = TemperatureAlert
+
+
+class HumidityValue(MonitoredValue):
+    ALERT = HumidityAlert
+
+
 class Sensor:
+
     @staticmethod
-    def _default_value(v: SensorValue, default: float, warn: float, alert: float):
+    def _default_value(v: SensorValue, default: float, warn: float, alert: float, type=MonitoredValue):
         if v is None:
-            v = MonitoredValue(default, warn=warn, alert=alert)
-        if isinstance(v, float):
-            v = MonitoredValue(v, warn=warn, alert=alert)
+            v = type(default, warn=warn, alert=alert)
+        if not isinstance(v, MonitoredValue):
+            v = type(v, warn=warn, alert=alert)
         return v
 
 
@@ -158,7 +176,7 @@ class TemperatureSensor(Sensor):
     @temperature.setter
     def temperature(self, value: SensorValue):
         if not isinstance(value, MonitoredValue):
-            value = self._default_value(value, 25, 3, 5)
+            value = self._default_value(value, 25, 3, 5, TemperatureValue)
         self._temperature = value
 
 
@@ -174,15 +192,32 @@ class HumiditySensor(Sensor):
     @humidity.setter
     def humidity(self, value: SensorValue):
         if not isinstance(value, MonitoredValue):
-            value = self._default_value(value, 50, 10, 20)
+            value = self._default_value(value, 50, 10, 20, HumidityValue)
         self._humidity = value
+
+
+class NamedSensor(Sensor):
+
+    def __init__(self, name: str = None):
+        self._name = None
+        if name is not None:
+            self.name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value: str):
+        self._name = value
 
 
 class WebSensor(Sensor):
 
     def __init__(self, url: str = None):
         self._url = None
-        self.url = url
+        if url is not None:
+            self.url = url
 
     @property
     def url(self):
@@ -197,9 +232,53 @@ class WebSensor(Sensor):
             raise ValueError
 
 
-class IncubatorSensor(TemperatureSensor, HumiditySensor, WebSensor):
+class IncubatorSensor(TemperatureSensor, HumiditySensor, WebSensor, NamedSensor):
 
-    def __init__(self, temperature: SensorValue = 25, humidity: SensorValue = 50, url: str = None):
+    def __init__(self, name: str = 'Incubator', temperature: SensorValue = 25,
+                 humidity: SensorValue = 50, url: str = None):
         TemperatureSensor.__init__(self, temperature)
         HumiditySensor.__init__(self, humidity)
         WebSensor.__init__(self, url)
+        NamedSensor.__init__(self, name)
+
+    def __repr__(self):
+        return 'IncubatorSensor(name: \'' + str(self.name) + '\', temperature: ' + str(self.temperature) \
+               + ', humidity: ' + str(self.humidity) + ')'
+
+
+class SensorReader:
+
+    @classmethod
+    def from_yaml(cls, path: Union[Path, str]):
+        sensors = []
+        with open(path) as file:
+            yaml_sensors = yaml.load(file, Loader=yaml.FullLoader)
+            for group in yaml_sensors['Incubators'].values():
+                for sensor in group:
+                    name = list(sensor.keys())[0]
+                    temperature = sensor['temperature'] if 'temperature' in sensor.keys() else None
+                    humidity = sensor['humidity'] if 'humidity' in sensor.keys() else None
+                    url = sensor['url'] if 'url' in sensor.keys() else None
+                    if url is not None:
+                        new_sensor = cls.incubator_from_url(url)
+                        if temperature is not None:
+                            new_sensor.temperature = temperature
+                        if humidity is not None:
+                            new_sensor.humidity = humidity
+                        if name is not None:
+                            new_sensor.name = name
+                    else:
+                        new_sensor = IncubatorSensor(name, temperature, humidity, url)
+                    sensors.append(new_sensor)
+            return sensors
+
+    @staticmethod
+    def incubator_from_url(url: str):
+        r = requests.get(url)
+        json = r.json()
+        if json:
+            temperature = json['sensor']['preset_temperature']
+            humidity = json['sensor']['preset_humidity']
+            name = json['sensor']['name']
+            return IncubatorSensor(name, temperature, humidity, url)
+        raise ValueError
