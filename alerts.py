@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Iterable
-from DateTime import DateTime
 import platform
 import yaml
 
@@ -136,7 +135,7 @@ class AlertState:
         return self._notified
 
     @notified.setter
-    def notified(self, value: DateTime):
+    def notified(self, value: datetime):
         self._notified = value
 
     def update(self, alerts: Iterable[Alert]):
