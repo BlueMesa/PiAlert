@@ -12,6 +12,10 @@ sensors = []
 alerts_handler = AlertHandler()
 
 
+class HTTPServer6(HTTPServer):
+    address_family = socket.AF_INET6
+
+
 class _RequestHandler(BaseHTTPRequestHandler):
 
     def _set_headers(self):
@@ -43,8 +47,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
 
 def run_server():
-    server_address = ('', 8000)
-    httpd = HTTPServer(server_address, _RequestHandler)
+    server_address = ('::', 8000)
+    httpd = HTTPServer6(server_address, _RequestHandler)
     httpd.address_family = socket.AF_INET6
     print('serving at %s:%d' % server_address)
     httpd.serve_forever()
