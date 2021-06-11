@@ -49,7 +49,6 @@ class _RequestHandler(BaseHTTPRequestHandler):
 def run_server():
     server_address = ('::', 8000)
     httpd = HTTPServer6(server_address, _RequestHandler)
-    httpd.address_family = socket.AF_INET6
     print('serving at %s:%d' % server_address)
     httpd.serve_forever()
 
