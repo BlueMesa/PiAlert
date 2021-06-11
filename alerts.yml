@@ -1,0 +1,8 @@
+alerts:
+  expiry:
+    hours: 0
+    minutes: 1
+  thresholds:
+    warning: 5
+    alert: 3
+numbers:

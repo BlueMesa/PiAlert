@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 import requests
 import yaml
 
-from alerts import Alert, TemperatureAlert, HumidityAlert
+from alerts import Alert, TemperatureAlert, HumidityAlert, LEVELS
 
 ThresholdValue = Union[float, str, Tuple[float, float], Tuple[str, str]]
 SensorValue = Union['MonitoredValue', float, None]
@@ -47,7 +47,7 @@ class Threshold:
 
     @level.setter
     def level(self, value: str):
-        if value in ['alert', 'warning', 'notify', 'info']:
+        if value in LEVELS:
             self._level = value
         else:
             raise ValueError

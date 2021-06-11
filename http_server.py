@@ -13,9 +13,14 @@ alerts_handler = AlertHandler()
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
+
     def _set_headers(self):
         self.send_response(HTTPStatus.OK)
         self.send_header('Content-type', 'application/json')
+        self.end_headers()
+
+    def _set_not_found(self):
+        self.send_response(HTTPStatus.NOT_FOUND)
         self.end_headers()
 
     def do_GET(self):
@@ -27,10 +32,14 @@ class _RequestHandler(BaseHTTPRequestHandler):
         message = json.loads(self.rfile.read(length))
         m = re.search(r'^/sensors/([0-9]+)/reading.json$', self.path)
         sensor_id = int(m.group(1))
-        sensor = sensors[sensor_id]
-        alerts_handler.handle(sensor, message)
-        self._set_headers()
-        self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+        if sensor_id < len(sensors):
+            sensor = sensors[sensor_id]
+            alerts_handler.handle(sensor, message)
+            self._set_headers()
+            self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+        else:
+            self._set_not_found()
+
 
 
 def run_server():
