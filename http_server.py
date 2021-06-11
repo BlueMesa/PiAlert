@@ -1,5 +1,5 @@
 """An example HTTP server with GET and POST endpoints."""
-
+import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from http import HTTPStatus
 import json
@@ -45,6 +45,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 def run_server():
     server_address = ('', 8000)
     httpd = HTTPServer(server_address, _RequestHandler)
+    httpd.address_family = socket.AF_INET6
     print('serving at %s:%d' % server_address)
     httpd.serve_forever()
 
